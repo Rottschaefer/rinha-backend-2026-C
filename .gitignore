@@ -1,0 +1,26 @@
+# C/C++
+*.o
+*.out
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE e Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Arquivos Binários (Conforme solicitado)
+*.bin
