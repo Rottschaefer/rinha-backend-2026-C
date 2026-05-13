@@ -1,6 +1,10 @@
 #include <http.h>
 #include <stdio.h>
 #include <string.h>
+#include "vec_search/vec_search.h"
+
+#define TRUE 1
+#define FALSE 0
 
 typedef struct __attribute__((packed)) {
 float coords[14];
@@ -40,29 +44,47 @@ void on_http_request(http_s *request){
 
 }
 
+
+
 int main(){
 
     // http_listen("9999", NULL, .on_request=on_http_request);
     // fio_start(.threads = 1);
 
-    FILE* file = fopen("resources/references.bin", "rb");
+    char* merchants[] = {"MERC-009", "MERC-001", "MERC-001"};
 
-    if (file == NULL) {
-        printf("Erro ao abrir o arquivo!\n");
-        return;
-    }
 
-    Record r;
-    int contador = 0;
+    TransactionRequest test_req = {
+        .id = "tx-3576980410",
+        .transaction = {
+            .amount = 384.88f,
+            .installments = 3,
+            .requested_at = "2026-03-11T20:23:35Z"
+        },
+        .customer = {
+            .avg_amount = 769.76f,
+            .tx_count_24h = 3,
+            .known_merchants = merchants,
+            .known_merchants_count = 3
+        },
+        .merchant = {
+            .id = "MERC-001",
+            .mcc = "5912",
+            .avg_amount = 298.95f
+        },
+        .terminal = {
+            .is_online = FALSE,
+            .card_present = TRUE,
+            .km_from_home = 13.7090520965f
+        },
+        .has_last_transaction = TRUE,
+        .last_transaction = {
+            .timestamp = "2026-03-11T14:58:35Z",
+            .km_from_current = 18.8626479774f
+        }
+    };
 
-    while(fread(&r, sizeof(Record),1, file) == 1){
-        contador++;
-        if(contador <10) printf("Record %d - Coord[0]: %f | Label: %d\n", contador, r.coords[3], r.label);
-    }
+    // printf("Criado TransactionRequest: ID=%s, Amount=%f\n", test_req.id, test_req.transaction.amount);
 
-    printf("Total de registros lidos: %d\n", contador);
-
-    fclose(file);
-    printf("Hello");
     return 0;
 }
