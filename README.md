@@ -18,8 +18,8 @@ Cada registro tem 57 bytes + 7 bytes de padding, totalizando 64 bytes. Essa deci
 ```c
 typedef struct __attribute__((packed)) {
     float coords[14];   // 56 bytes (14 * 4)
-    int8_t label;       // 1 byte  (fraud/legit)
-    int8_t padding[7];  // 7 bytes de recheio manual
+    unsigned char label;       // 1 byte  (fraud/legit)
+    unsigned char padding[7];  // 7 bytes de recheio manual
 } Record; // Total: Exatos 64 bytes
 ```
 

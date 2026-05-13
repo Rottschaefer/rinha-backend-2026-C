@@ -4,8 +4,8 @@
 
 typedef struct __attribute__((packed)) {
 float coords[14];
-int8_t label;
-int8_t padding[7];
+unsigned char label;
+unsigned char padding[7];
 } Record;
 
 void on_http_request(http_s *request){
