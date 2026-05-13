@@ -1,6 +1,7 @@
 #include "vec_search.h"
 #include <stdio.h>
 #include <limits.h>
+#include <string.h>
 
 
 typedef struct __attribute__((packed)) {
@@ -115,5 +116,45 @@ float clamp(float val) {
     return val;
 }
 
+int merchant_is_known(char* id, CustomerInfo* info){
+    for (int i = 0; i < info->known_merchants_count; i++)
+    {
+        if(strcmp(id,info->known_merchants[i]) == 0) return 1;
+    }
 
-void vectorize_request(TransactionRequest* req, Normalization* norm, float* out) {}
+    return 0;
+    
+}
+
+void vectorize_request(TransactionRequest* req, Normalization* norm, float* out) {
+
+    out[0] = clamp(req->transaction.amount/norm->max_amount);
+
+    out[1] = clamp((float)(req->transaction.installments)/norm->max_installments);
+
+    out[2] = clamp((req->transaction.amount/req->customer.avg_amount)/norm->amount_vs_avg_ratio);
+
+    //Aqui falta os campos 3, 4 e 5 que são de manipulação de data
+
+    if(req->has_last_transaction == 0){
+        out[6] = -1;
+    }
+    else{
+        out[6] = clamp(req->last_transaction.km_from_current/norm->max_km);
+    }
+
+    out[7] = clamp(req->terminal.km_from_home/norm->max_km);
+
+    out[8] = clamp((float)(req->customer.tx_count_24h)/norm->max_tx_count_24h);
+
+    out[9] = (req->terminal.is_online);
+
+    out[10] = (req->terminal.card_present);
+
+    
+    out[11] = (merchant_is_known(req->merchant.id, &(req->customer)));
+
+    out[12] = get_mcc_risk(req->merchant.mcc);
+
+    out[13] = clamp(req->merchant.avg_amount/norm->max_merchant_avg_amount);
+}
