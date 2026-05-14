@@ -52,49 +52,38 @@ int main(){
     // http_listen("9999", NULL, .on_request=on_http_request);
     // fio_start(.threads = 1);
 
-    char* merchants[] = {"MERC-009", "MERC-001", "MERC-001"};
+    char* merchants[] = {"MERC-008", "MERC-007", "MERC-005"};
 
 
     TransactionRequest test_req = {
-        .id = "tx-3576980410",
+        .id = "tx-3330991687",
         .transaction = {
-            .amount = 384.88f,
-            .installments = 3,
-            .requested_at = "2026-03-3T20:23:35Z"
+            .amount = 9505.97f,
+            .installments = 10,
+            .requested_at = "2026-03-14T05:15:12Z"
         },
         .customer = {
-            .avg_amount = 769.76f,
-            .tx_count_24h = 3,
+            .avg_amount = 81.28f,
+            .tx_count_24h = 20,
             .known_merchants = merchants,
             .known_merchants_count = 3
         },
         .merchant = {
-            .id = "MERC-001",
-            .mcc = "5912",
-            .avg_amount = 298.95f
+            .id = "MERC-068",
+            .mcc = "7802",
+            .avg_amount = 54.86f
         },
         .terminal = {
             .is_online = FALSE,
             .card_present = TRUE,
-            .km_from_home = 13.7090520965f
+            .km_from_home = 952.27f
         },
-        .has_last_transaction = TRUE,
-        .last_transaction = {
-            .timestamp = "2026-03-11T14:58:35Z",
-            .km_from_current = 18.8626479774f
-        }
+        .has_last_transaction = FALSE
     };
 
-    float vec[14];
+    FILE* file = fopen("resources/references.bin", "rb");
 
-    vectorize_request(&test_req, vec);
-
-    for (int i = 0; i < 14; i++)
-    {
-        printf("%f - ", vec[i]);
-    }
-
-    printf("\n");
+    printf("Fraudes: %d\n", knn(5, file, &test_req));
     
 
     return 0;

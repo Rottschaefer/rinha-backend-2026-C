@@ -40,8 +40,19 @@ float calc_dist(float* a, float* b){
     
 }
 
-int knn(int k, FILE* file, float* vetor){
+int knn(int k, FILE* file, TransactionRequest* req){
     //Passa por cada registro do arquivo calculando a distancia e guardando os k mais pertos. Podemos otimizar essa leitura 
+
+    float vetor[14];
+    
+    vectorize_request(req, vetor);
+
+    for (int i = 0; i < 14; i++)
+    {
+        printf("%.4f - ", vetor[i]);
+    }
+    
+    printf("\n");
 
     Vizinho top_k[k];
 
@@ -74,12 +85,12 @@ int knn(int k, FILE* file, float* vetor){
         
     }
 
-    //frauds é label 0
+    //legit é label 0
     int frauds = 0;
 
     for (int i = 0; i < k; i++)
     {
-        frauds += !(top_k[i].label);
+        frauds += (top_k[i].label);
     }
     
     return frauds;
@@ -129,10 +140,12 @@ float clamp(float val) {
 int merchant_is_known(char* id, CustomerInfo* info){
     for (int i = 0; i < info->known_merchants_count; i++)
     {
-        if(strcmp(id,info->known_merchants[i]) == 0) return 1;
+        if(strcmp(id,info->known_merchants[i]) == 0) return 0;
     }
 
-    return 0;
+    return 1;
+
+    //1 se merchant.id não estiver em customer.known_merchants, senão 0 (invertido: 1 = desconhecido)
     
 }
 
