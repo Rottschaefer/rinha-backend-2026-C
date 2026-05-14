@@ -2,9 +2,12 @@
 #include <stdio.h>
 #include <limits.h>
 #include <string.h>
+#include <time.h>
+#include <stdlib.h>
 
 
-typedef struct __attribute__((packed)) {
+//Usar __attribute__((packed)) faz diferença?
+typedef struct {
 float coords[14];
 unsigned char label;
 unsigned char padding[7];
@@ -14,6 +17,13 @@ typedef struct vizinho{
     unsigned char label;
     float dist;
 }Vizinho;
+
+typedef struct {
+
+    struct tm calendar;
+    time_t timestamp;
+
+} ParsedDate;
 
 
 
@@ -126,26 +136,66 @@ int merchant_is_known(char* id, CustomerInfo* info){
     
 }
 
-void vectorize_request(TransactionRequest* req, Normalization* norm, float* out) {
+ParsedDate parse_date(const char *datetime) {
 
-    out[0] = clamp(req->transaction.amount/norm->max_amount);
+    int year, month, day;
+    int hour, min, sec;
 
-    out[1] = clamp((float)(req->transaction.installments)/norm->max_installments);
+    sscanf(datetime,
+           "%d-%d-%dT%d:%d:%dZ",
+           &year, &month, &day,
+           &hour, &min, &sec);
 
-    out[2] = clamp((req->transaction.amount/req->customer.avg_amount)/norm->amount_vs_avg_ratio);
+    struct tm t = {0};
 
-    //Aqui falta os campos 3, 4 e 5 que são de manipulação de data
+    t.tm_year = year - 1900;
+    t.tm_mon  = month - 1;
+    t.tm_mday = day;
+
+    t.tm_hour = hour;
+    t.tm_min  = min;
+    t.tm_sec  = sec;
+
+    time_t ts = timegm(&t);
+
+    ParsedDate output = {.calendar = t, .timestamp = ts};
+
+    return output;
+}
+
+
+void vectorize_request(TransactionRequest* req, float* out) {
+
+    Normalization norm = get_normalization_data();
+
+    out[0] = clamp(req->transaction.amount/norm.max_amount);
+
+    out[1] = clamp((float)(req->transaction.installments)/norm.max_installments);
+
+    out[2] = clamp((req->transaction.amount/req->customer.avg_amount)/norm.amount_vs_avg_ratio);
+
+
+    ParsedDate transaction_date = parse_date(req->transaction.requested_at);
+
+    out[3] = ((float)transaction_date.calendar.tm_hour)/23;
+
+
+    out[4] = (float)(((transaction_date.calendar.tm_wday + 6)%7)/6.0); //A lib time tem domingo como 0, mas a rinha pede segunda como 0
 
     if(req->has_last_transaction == 0){
+        out[5] = -1;
         out[6] = -1;
     }
     else{
-        out[6] = clamp(req->last_transaction.km_from_current/norm->max_km);
+        ParsedDate last_transaction_date = parse_date(req->last_transaction.timestamp);
+
+        out[5] = clamp((float)(difftime(transaction_date.timestamp, last_transaction_date.timestamp)/60.0)/norm.max_minutes);
+        out[6] = clamp(req->last_transaction.km_from_current/norm.max_km);
     }
 
-    out[7] = clamp(req->terminal.km_from_home/norm->max_km);
+    out[7] = clamp(req->terminal.km_from_home/norm.max_km);
 
-    out[8] = clamp((float)(req->customer.tx_count_24h)/norm->max_tx_count_24h);
+    out[8] = clamp((float)(req->customer.tx_count_24h)/norm.max_tx_count_24h);
 
     out[9] = (req->terminal.is_online);
 
@@ -156,5 +206,5 @@ void vectorize_request(TransactionRequest* req, Normalization* norm, float* out)
 
     out[12] = get_mcc_risk(req->merchant.mcc);
 
-    out[13] = clamp(req->merchant.avg_amount/norm->max_merchant_avg_amount);
+    out[13] = clamp(req->merchant.avg_amount/norm.max_merchant_avg_amount);
 }

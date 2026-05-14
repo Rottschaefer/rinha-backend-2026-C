@@ -1,7 +1,8 @@
-#include <http.h>
+// #include <http.h>
 #include <stdio.h>
 #include <string.h>
 #include "vec_search/vec_search.h"
+#include <time.h>
 
 #define TRUE 1
 #define FALSE 0
@@ -12,37 +13,37 @@ unsigned char label;
 unsigned char padding[7];
 } Record;
 
-void on_http_request(http_s *request){
+// void on_http_request(http_s *request){
 
-    fio_str_info_s path = fiobj_obj2cstr(request->path);
+//     fio_str_info_s path = fiobj_obj2cstr(request->path);
 
-    char* path_1 = "/ready";
-    char* path_2 = "/fraud-score";
+//     char* path_1 = "/ready";
+//     char* path_2 = "/fraud-score";
 
-    if(strcmp(path_1, path.data) == 0){
+//     if(strcmp(path_1, path.data) == 0){
         
-        printf("Requisição ready\n\n");
+//         printf("Requisição ready\n\n");
 
 
-        request->status = 200;
-        http_send_body(request, NULL, 0);
-    }
+//         request->status = 200;
+//         http_send_body(request, NULL, 0);
+//     }
 
-    if(strcmp(path_2, path.data) == 0){
+//     if(strcmp(path_2, path.data) == 0){
         
-        printf("Requisição fraud-score\n\n");
+//         printf("Requisição fraud-score\n\n");
 
-        request->status = 200;
+//         request->status = 200;
 
-        char* response = "{\"approved\": false, \"fraud_score\": 0.8}";
+//         char* response = "{\"approved\": false, \"fraud_score\": 0.8}";
         
-        http_send_body(request, response, 39);
-    }
+//         http_send_body(request, response, 39);
+//     }
 
 
 
 
-}
+// }
 
 
 
@@ -59,7 +60,7 @@ int main(){
         .transaction = {
             .amount = 384.88f,
             .installments = 3,
-            .requested_at = "2026-03-11T20:23:35Z"
+            .requested_at = "2026-03-3T20:23:35Z"
         },
         .customer = {
             .avg_amount = 769.76f,
@@ -84,7 +85,17 @@ int main(){
         }
     };
 
-    // printf("Criado TransactionRequest: ID=%s, Amount=%f\n", test_req.id, test_req.transaction.amount);
+    float vec[14];
+
+    vectorize_request(&test_req, vec);
+
+    for (int i = 0; i < 14; i++)
+    {
+        printf("%f - ", vec[i]);
+    }
+
+    printf("\n");
+    
 
     return 0;
 }
