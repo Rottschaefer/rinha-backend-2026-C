@@ -6,12 +6,16 @@
 
 #define TRUE 1
 #define FALSE 0
+#define K 5
 
 typedef struct __attribute__((packed)) {
 float coords[14];
 unsigned char label;
 unsigned char padding[7];
 } Record;
+
+// Arquivo global aberto na inicialização e acessível aos requests
+FILE* db_file = NULL;
 
 void parse_json(TransactionRequest* transaction, char* body){
     //Optamos por fazer um parse simples json->struct usando uma combinação de strstr com sscanf que leva em conta a estrutura da requisição. Não funcionaria para outros modelos
@@ -182,13 +186,27 @@ void on_http_request(http_s *request){
 
         parse_json(&req, body.data);
         
-        print_transaction(&req);
+        // print_transaction(&req);
+
+        // O cursor do ponteiro do arquivo avança até o final a cada requisição
+        // Precisamos voltar ele para o início (byte 0) antes de rodar o knn de novo.
+        rewind(db_file);
+
+        int frauds = knn(K, db_file, &req);
+
+        printf("frauds %d\n", frauds);
+
+        float fraud_score = (float)(frauds)/K;
+
+        char* approved = fraud_score < 0.6 ? "true" : "false";
+
+        char response[128];
+
+        int len = snprintf(response, sizeof(response), "{\"approved\": %s, \"fraud_score\": %.2f}", approved, fraud_score);
 
         request->status = 200;
-
-        char* response = "{\"approved\": false, \"fraud_score\": 0.8}";
         
-        http_send_body(request, response, 39);
+        http_send_body(request, response, len); 
     }
 
 
@@ -200,9 +218,16 @@ void on_http_request(http_s *request){
 
 int main(){
 
+    db_file = fopen("resources/references.bin", "rb");
+    if (!db_file) {
+        printf("Não foi possível abrir resources/references.bin\n");
+        return 1;
+    }
+
     http_listen("9999", NULL, .on_request=on_http_request);
     fio_start(.threads = 1);
 
+    if (db_file) fclose(db_file);
     return 0;
 
     char* merchants[] = {"MERC-008", "MERC-007", "MERC-005"};
