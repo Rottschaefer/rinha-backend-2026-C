@@ -1,9 +1,10 @@
 #include <http.h>
 #include <stdio.h>
 #include <string.h>
-#include "vec_search/vec_search.h"
+#include "req_2_vec/req_2_vec.h"
 #include <time.h>
 #include "usearch/usearch.h"
+#include <assert.h> 
 
 #define TRUE 1
 #define FALSE 0
@@ -15,8 +16,13 @@ unsigned char label;
 unsigned char padding[7];
 } Record;
 
-// Arquivo global aberto na inicialização e acessível aos requests
+
+#define VECTORS_COUNT 3000000
+
+usearch_index_t global_index = NULL;
 FILE* db_file = NULL;
+
+int global_labels[VECTORS_COUNT]; 
 
 void parse_json(TransactionRequest* transaction, char* body){
     //Optamos por fazer um parse simples json->struct usando uma combinação de strstr com sscanf que leva em conta a estrutura da requisição. Não funcionaria para outros modelos
@@ -181,19 +187,31 @@ void on_http_request(http_s *request){
         
         printf("Requisição fraud-score\n\n");
 
+        usearch_error_t error = NULL;
+
         fio_str_info_s body = fiobj_obj2cstr(request->body);
 
         TransactionRequest req;
 
         parse_json(&req, body.data);
+
+        float vector[14];
+
+        vectorize_request(&req, vector);
         
-        // print_transaction(&req);
+        usearch_key_t found_keys[K];
+        usearch_distance_t found_distances[K];
+        size_t found_count = usearch_search(
+            global_index, &vector[0], usearch_scalar_f32_k, K,
+            &found_keys[0], &found_distances[0], &error);
+        
+        int frauds = 0;
 
-        // O cursor do ponteiro do arquivo avança até o final a cada requisição
-        // Precisamos voltar ele para o início (byte 0) antes de rodar o knn de novo.
-        rewind(db_file);
-
-        int frauds = knn(K, db_file, &req);
+        for (int i = 0; i < K; i++)
+        {
+            frauds += global_labels[found_keys[i]];
+        }
+        
 
         printf("frauds %d\n", frauds);
 
@@ -217,20 +235,64 @@ void on_http_request(http_s *request){
 
 
 
-int main(){
+int main(int argc, char* argv[]){
+    size_t dimensions = 14;
+
+    float vector[dimensions];
+
+    usearch_error_t error = NULL;
+    usearch_init_options_t opts = {
+        .metric_kind = usearch_metric_cos_k,
+        .quantization = usearch_scalar_f32_k, // or f32_k, bf16_k, e5m2_k, e4m3_k, e3m2_k, e2m3_k, i8_k, u8_k
+        .dimensions = dimensions,
+        .expansion_add = 0, // for defaults
+        .expansion_search = 0 // for defaults
+    };
+    usearch_index_t global_index = usearch_init(&opts, &error);
+
+    usearch_reserve(global_index, VECTORS_COUNT, &error);
+    if (error) goto cleanup;
 
     db_file = fopen("resources/references.bin", "rb");
     if (!db_file) {
         printf("Não foi possível abrir resources/references.bin\n");
-        return 1;
+        goto cleanup;
     }
 
-    http_listen("9999", NULL, .on_request=on_http_request);
+    Record r;
+    int i = 0;
+
+    //Copiando os registros do arquivo para o index do usearch
+    printf("Carregando vetores na memória...\n");
+
+
+    while(fread(&r, sizeof(Record), 1, db_file) == 1){
+
+        printf("Carregando vetor %d\n", i);
+
+        global_labels[i] = r.label;
+
+        usearch_add(global_index, i, r.coords, usearch_scalar_f32_k, &error);
+        if (error) goto cleanup;
+
+        i++;     
+    }
+
+    usearch_save(global_index, "index.usearch", &error);
+
+
+    printf("API rodando na porta %s\n", argv[1]);
+
+
+    http_listen(argv[1], NULL, .on_request=on_http_request);
     fio_start(.threads = 1);
 
     if (db_file) fclose(db_file);
     return 0;
 
 
-    return 0;
+    cleanup:
+        if (error) fprintf(stderr, "Error: %s\n", error);
+        if (global_index) usearch_free(global_index, &error);
+        return error ? 1 : 0;
 }

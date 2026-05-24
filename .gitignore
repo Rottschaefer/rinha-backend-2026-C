@@ -11,6 +11,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.venv
 
 # IDE e Editores
 .vscode/
@@ -22,5 +23,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Arquivos Binários (Conforme solicitado)
-*.bin
+# Dados Gerados pelo Script
+resources/*.bin
+*.usearch
+labels

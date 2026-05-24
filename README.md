@@ -25,14 +25,23 @@ typedef struct __attribute__((packed)) {
 
 ## Como Executar
 
-Antes de iniciar a API, é necessário gerar o arquivo de dados em formato binário a partir do JSON utilizando o script Python criado para isso.
+Antes de iniciar a API, é necessário gerar o arquivo de index para uso do USearch e um arquivo de labels com o label de cada vetor do dataset. Execute o arquivo python para isso:
 
-**1. Gerar o arquivo binário:**
+**1. Preparar o Ambiente Python e Dependências:**
+O script de indexação necessita de algumas bibliotecas (como `numpy` e `usearch`). É recomendado executá-lo dentro de um ambiente virtual (venv):
+
 ```bash
-python3 json_2_bin.py resources/references.json.gz resources/references.bin
+python3 -m venv venv
+source venv/bin/activate  # No Windows: venv\Scripts\activate
+pip install numpy usearch
 ```
 
-**2. Compilar a biblioteca facil.io:**
+**2. Gerar o arquivo binário:**
+```bash
+python3 create_index.py resources/references.json.gz resources/references.bin
+```
+
+**3. Compilar a biblioteca facil.io:**
 Para otimizar o tempo de compilação da aplicação, podemos pré-compilar o `facil.io` em uma biblioteca estática:
 
 ```bash
@@ -41,11 +50,11 @@ ar rcs libfacil.a *.o
 rm *.o
 ```
 
-**3. Compilar e Executar a API:**
-Compile o projeto (`main.c` e `vec_search.c`) apontando para as bibliotecas e executando em seguida:
+**4. Compilar e Executar a API:**
+Compile o projeto (`main.c`, `req_2_vec.c` e `usearch`) apontando para as bibliotecas e executando em seguida:
 
 ```bash
-gcc -O3 -o api_main main.c vec_search/vec_search.c \
+gcc -O3 -o api_main main.c req_2_vec/req_2_vec.c \
   ./usearch/usearch_linux_amd64_2.25.2.so \
   -I. \
   -I./facil.io/include \
