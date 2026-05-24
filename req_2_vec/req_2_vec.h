@@ -63,7 +63,6 @@ typedef struct {
 } Normalization;
 
 
-int knn(int k, FILE* file, TransactionRequest* req);
 Normalization get_normalization_data(void);
 float get_mcc_risk(const char* mcc);
 void vectorize_request(TransactionRequest* req, float* out_vector);
