@@ -38,7 +38,7 @@ pip install numpy usearch
 
 **2. Gerar o arquivo binário:**
 ```bash
-python3 create_index.py resources/references.json.gz resources/references.bin
+python3 create_index.py resources/references.json.gz resources/labels
 ```
 
 **3. Compilar a biblioteca facil.io:**
