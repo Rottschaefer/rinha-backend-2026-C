@@ -42,7 +42,7 @@ def convert_json_to_bin(json_path, bin_path):
         f_bin.write(labels.tobytes()) # Transforma a matriz inteira em bytes puros
 
     # INDEXANDO A MATRIZ INTEIRA NA USEARCH (Batch Add em C++)
-    print("Building HNSW graph from matrix (C++ parallel speed)...")
+    print("Building HNSW graph from matrix...")
     index.add(keys, vectors)
             
     print("Saving index to index.usearch...")
