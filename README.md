@@ -32,10 +32,26 @@ Antes de iniciar a API, é necessário gerar o arquivo de dados em formato biná
 python3 json_2_bin.py resources/references.json.gz resources/references.bin
 ```
 
-**2. Compilar e Executar:**
-Compile o projeto com a flag de otimização máxima (`-O3`) e lincando a biblioteca do *facil.io*. Em seguida, execute o binário:
+**2. Compilar a biblioteca facil.io:**
+Para otimizar o tempo de compilação da aplicação, podemos pré-compilar o `facil.io` em uma biblioteca estática:
 
 ```bash
-gcc -O3 -o api_main main.c facil.io/src/*.c -I ./facil.io/include -pthread -lm
+gcc -c -O3 facil.io/src/*.c -I./facil.io/include
+ar rcs libfacil.a *.o
+rm *.o
+```
+
+**3. Compilar e Executar a API:**
+Compile o projeto (`main.c` e `vec_search.c`) apontando para as bibliotecas e executando em seguida:
+
+```bash
+gcc -O3 -o api_main main.c vec_search/vec_search.c \
+  ./usearch/usearch_linux_amd64_2.25.2.so \
+  -I. \
+  -I./facil.io/include \
+  -L. -lfacil \
+  -Wl,-rpath,./usearch \
+  -pthread -lm
+
 ./api_main
 ```
