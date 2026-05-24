@@ -55,7 +55,7 @@ Compile o projeto (`main.c`, `req_2_vec.c` e `usearch`) apontando para as biblio
 
 ```bash
 gcc -O3 -o api_main main.c req_2_vec/req_2_vec.c \
-  ./usearch/usearch_linux_amd64_2.25.2.so \
+  ./usearch/libusearch_c.so \
   -I. \
   -I./facil.io/include \
   -L. -lfacil \

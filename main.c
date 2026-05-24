@@ -20,9 +20,8 @@ unsigned char padding[7];
 #define VECTORS_COUNT 3000000
 
 usearch_index_t global_index = NULL;
-FILE* db_file = NULL;
 
-int global_labels[VECTORS_COUNT]; 
+unsigned char global_labels[VECTORS_COUNT]; 
 
 void parse_json(TransactionRequest* transaction, char* body){
     //Optamos por fazer um parse simples json->struct usando uma combinação de strstr com sscanf que leva em conta a estrutura da requisição. Não funcionaria para outros modelos
@@ -193,9 +192,11 @@ void on_http_request(http_s *request){
 
         TransactionRequest req;
 
+
         parse_json(&req, body.data);
 
         float vector[14];
+
 
         vectorize_request(&req, vector);
         
@@ -241,6 +242,9 @@ int main(int argc, char* argv[]){
     float vector[dimensions];
 
     usearch_error_t error = NULL;
+
+    //Inicializa as metadados do usearch index
+
     usearch_init_options_t opts = {
         .metric_kind = usearch_metric_cos_k,
         .quantization = usearch_scalar_f32_k, // or f32_k, bf16_k, e5m2_k, e4m3_k, e3m2_k, e2m3_k, i8_k, u8_k
@@ -248,37 +252,34 @@ int main(int argc, char* argv[]){
         .expansion_add = 0, // for defaults
         .expansion_search = 0 // for defaults
     };
-    usearch_index_t global_index = usearch_init(&opts, &error);
+    global_index = usearch_init(&opts, &error);
 
-    usearch_reserve(global_index, VECTORS_COUNT, &error);
+
+    //Carrega o index em disco para memória
+
+    usearch_load(global_index, "index.usearch", &error);
     if (error) goto cleanup;
 
-    db_file = fopen("resources/references.bin", "rb");
-    if (!db_file) {
-        printf("Não foi possível abrir resources/references.bin\n");
+
+
+    //Preenche o global_labels com os dados do arquivo labels
+    FILE* labels = fopen("resources/labels", "rb");
+    if (!labels) {
+        printf("Não foi possível abrir o arquivo com as labels (resources/references.bin)\n");
         goto cleanup;
     }
 
-    Record r;
-    int i = 0;
+    printf("Carregando labels no vetor...\n");
 
-    //Copiando os registros do arquivo para o index do usearch
-    printf("Carregando vetores na memória...\n");
-
-
-    while(fread(&r, sizeof(Record), 1, db_file) == 1){
-
-        printf("Carregando vetor %d\n", i);
-
-        global_labels[i] = r.label;
-
-        usearch_add(global_index, i, r.coords, usearch_scalar_f32_k, &error);
-        if (error) goto cleanup;
-
-        i++;     
+    unsigned char label;
+    int i =0;
+    while( fread(&label, sizeof(char), 1, labels) == 1){
+        global_labels[i] = label;
+        i++;
     }
 
-    usearch_save(global_index, "index.usearch", &error);
+    fclose(labels);
+
 
 
     printf("API rodando na porta %s\n", argv[1]);
@@ -287,7 +288,6 @@ int main(int argc, char* argv[]){
     http_listen(argv[1], NULL, .on_request=on_http_request);
     fio_start(.threads = 1);
 
-    if (db_file) fclose(db_file);
     return 0;
 
 
