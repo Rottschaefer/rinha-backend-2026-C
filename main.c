@@ -4,11 +4,14 @@
 #include "req_2_vec/req_2_vec.h"
 #include <time.h>
 #include "usearch/usearch.h"
+#include "kdtree/kdtree.h"
 #include <assert.h> 
+#include <stdint.h>
 
 #define TRUE 1
 #define FALSE 0
-#define K 5
+#define K 1
+#define DIM 14
 
 typedef struct __attribute__((packed)) {
 float coords[14];
@@ -21,7 +24,9 @@ unsigned char padding[7];
 
 usearch_index_t global_index = NULL;
 
-unsigned char global_labels[VECTORS_COUNT]; 
+unsigned char global_labels[VECTORS_COUNT];
+
+struct kdtree* kd;
 
 void parse_json(TransactionRequest* transaction, char* body){
     //Optamos por fazer um parse simples json->struct usando uma combinação de strstr com sscanf que leva em conta a estrutura da requisição. Não funcionaria para outros modelos
@@ -167,6 +172,8 @@ void print_transaction(TransactionRequest* req) {
 
 void on_http_request(http_s *request){
 
+    struct kdres;
+
 
     fio_str_info_s path = fiobj_obj2cstr(request->path);
 
@@ -186,7 +193,7 @@ void on_http_request(http_s *request){
         
         printf("Requisição fraud-score\n\n");
 
-        usearch_error_t error = NULL;
+        // usearch_error_t error = NULL;
 
         fio_str_info_s body = fiobj_obj2cstr(request->body);
 
@@ -200,23 +207,34 @@ void on_http_request(http_s *request){
 
         vectorize_request(&req, vector);
         
-        usearch_key_t found_keys[K];
-        usearch_distance_t found_distances[K];
-        size_t found_count = usearch_search(
-            global_index, &vector[0], usearch_scalar_f32_k, K,
-            &found_keys[0], &found_distances[0], &error);
-        
+        // usearch_key_t found_keys[K];
+        // usearch_distance_t found_distances[K];
+        // size_t found_count = usearch_search(
+        //     global_index, &vector[0], usearch_scalar_f32_k, K,
+        //     &found_keys[0], &found_distances[0], &error);
+
         int frauds = 0;
 
-        for (int i = 0; i < K; i++)
-        {
-            frauds += global_labels[found_keys[i]];
+
+        struct kdres* set = kd_nearest_range(kd, vector, K);
+
+        kd_res_rewind(set);
+
+        int size = 0;
+
+        while (!kd_res_end(set) && size < 10000) {
+            unsigned char label = (unsigned char)(intptr_t)kd_res_item_data(set);
+            frauds += label;
+            kd_res_next(set);
+            size++;
         }
+
+        kd_res_free(set);
         
 
-        printf("frauds %d\n", frauds);
+        printf("frauds %d em um total de %d vetores\n", frauds, size);
 
-        float fraud_score = (float)(frauds)/K;
+        float fraud_score = (float)(frauds)/size;
 
         char* approved = fraud_score < 0.35 ? "true" : "false";
 
@@ -234,52 +252,55 @@ void on_http_request(http_s *request){
 
 }
 
+struct kdtree* populate_kdtree(){
+
+    float vector[DIM];
+
+    struct kdtree* kdtree = kd_create(DIM);
+
+    FILE* file = fopen("resources/references.bin", "rb");
+
+    Record r;
+    while(fread(&r, sizeof(r), 1, file) == 1){
+
+        kd_insert(kdtree, r.coords, (void*)(intptr_t)(r.label));
+    };
+
+    fclose(file);
+
+    return kdtree;
+
+}
+
 
 
 int main(int argc, char* argv[]){
-    size_t dimensions = 14;
 
-    float vector[dimensions];
+    
 
-    usearch_error_t error = NULL;
+    // usearch_error_t error = NULL;
 
     //Inicializa as metadados do usearch index
 
-    usearch_init_options_t opts = {
-        .metric_kind = usearch_metric_cos_k,
-        .quantization = usearch_scalar_f32_k, // or f32_k, bf16_k, e5m2_k, e4m3_k, e3m2_k, e2m3_k, i8_k, u8_k
-        .dimensions = dimensions,
-        .expansion_add = 0, // for defaults
-        .expansion_search = 128 // for defaults
-    };
-    global_index = usearch_init(&opts, &error);
+    // usearch_init_options_t opts = {
+    //     .metric_kind = usearch_metric_cos_k,
+    //     .quantization = usearch_scalar_f32_k, // or f32_k, bf16_k, e5m2_k, e4m3_k, e3m2_k, e2m3_k, i8_k, u8_k
+    //     .dimensions = dimensions,
+    //     .expansion_add = 0, // for defaults
+    //     .expansion_search = 128 // for defaults
+    // };
+    // global_index = usearch_init(&opts, &error);
 
 
     //Carrega o index em disco para memória
 
-    usearch_load(global_index, "index.usearch", &error);
-    if (error) goto cleanup;
+    // usearch_load(global_index, "index.usearch", &error);
+    // if (error) goto cleanup;
+
+    printf("Criando KDTREE...\n");
 
 
-
-    //Preenche o global_labels com os dados do arquivo labels
-    FILE* labels = fopen("resources/labels", "rb");
-    if (!labels) {
-        printf("Não foi possível abrir o arquivo com as labels (resources/references.bin)\n");
-        goto cleanup;
-    }
-
-    printf("Carregando labels no vetor...\n");
-
-    unsigned char label;
-    int i =0;
-    while( fread(&label, sizeof(char), 1, labels) == 1){
-        global_labels[i] = label;
-        i++;
-    }
-
-    fclose(labels);
-
+    kd = populate_kdtree();
 
 
     printf("API rodando na porta %s\n", argv[1]);
@@ -288,11 +309,10 @@ int main(int argc, char* argv[]){
     http_listen(argv[1], NULL, .on_request=on_http_request);
     fio_start(.threads = 1);
 
+    kd_free(kd);
+
     return 0;
 
 
-    cleanup:
-        if (error) fprintf(stderr, "Error: %s\n", error);
-        if (global_index) usearch_free(global_index, &error);
-        return error ? 1 : 0;
+   ;
 }
