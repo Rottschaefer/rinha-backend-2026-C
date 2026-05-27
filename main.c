@@ -8,7 +8,7 @@
 
 #define TRUE 1
 #define FALSE 0
-#define K 5
+#define K 9
 
 typedef struct __attribute__((packed)) {
 float coords[14];
@@ -250,7 +250,7 @@ int main(int argc, char* argv[]){
         .quantization = usearch_scalar_f32_k, // or f32_k, bf16_k, e5m2_k, e4m3_k, e3m2_k, e2m3_k, i8_k, u8_k
         .dimensions = dimensions,
         .expansion_add = 0, // for defaults
-        .expansion_search = 128 // for defaults
+        .expansion_search = 64 // for defaults
     };
     global_index = usearch_init(&opts, &error);
 

@@ -15,7 +15,8 @@ def convert_json_to_bin(json_path, bin_path):
         ndim=14,
         metric='cos',
         dtype='f32',
-        expansion_add=16,    
+        connectivity=32,
+        expansion_add=512,    
         expansion_search=16
     )
 
